@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 
 export interface AIAnalysisResult {
@@ -14,11 +13,11 @@ export async function identifyDeviceFromImage(base64Image: string): Promise<AIAn
   // Strip header if exists (data:image/jpeg;base64,...)
   const cleanData = base64Image.split(',')[1] || base64Image;
 
-  // List of models to try in order of preference (Fastest/Free -> Strongest -> Experimental)
+  // Updated models list using the latest stable versions
   const MODELS_TO_TRY = [
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
-    'gemini-2.0-flash-exp'
+    'gemini-2.5-flash', // Newest, fastest, and supports vision
+    'gemini-2.0-flash-exp', // Experimental fallback
+    'gemini-1.5-flash' // Legacy fallback
   ];
 
   let lastError = null;
@@ -39,8 +38,6 @@ export async function identifyDeviceFromImage(base64Image: string): Promise<AIAn
 
         for (const modelName of MODELS_TO_TRY) {
             try {
-                // console.log(`Trying Key ending ...${apiKey.slice(-4)} with Model: ${modelName}`);
-                
                 const response = await ai.models.generateContent({
                     model: modelName,
                     contents: {
@@ -57,7 +54,7 @@ export async function identifyDeviceFromImage(base64Image: string): Promise<AIAn
                 const text = response.text;
                 if (!text) throw new Error("Empty response");
 
-                // Aggressive JSON cleaning
+                // Aggressive JSON cleaning to handle potential Markdown wrapping
                 const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
                 const result = JSON.parse(jsonStr);
                 
@@ -66,12 +63,12 @@ export async function identifyDeviceFromImage(base64Image: string): Promise<AIAn
                     return result; // SUCCESS!
                 }
             } catch (innerError) {
+                // console.warn(`Model ${modelName} failed for this key.`, innerError);
                 // Continue to next model
-                // console.warn(`Model ${modelName} failed for this key.`);
             }
         }
     } catch (error) {
-      // Key failed entirely
+      // Key failed entirely (likely quota exceeded or invalid)
       lastError = error;
     }
   }
