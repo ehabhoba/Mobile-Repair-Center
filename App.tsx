@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { 
@@ -1097,11 +1096,10 @@ ${repair.parts.length > 0 ? `📦 *قطع الغيار:* ${repair.parts.join(', 
       {invoiceData && (
         <div className="hidden print:flex print-only flex-col bg-white w-full h-full text-slate-900 font-sans">
           
-          {/* Container - uses minimal padding for small print, more for A4 if possible. 
-              Tailwind 'sm:' breakpoint separates receipts (mobile-first) from A4 (desktop/larger). */}
+          {/* Container */}
           <div className="p-2 sm:p-8 w-full max-w-[100%] mx-auto flex-1 flex flex-col">
             
-            {/* Header: Stacked on small (Receipt), Row on A4 */}
+            {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-center border-b-2 border-slate-800 pb-4 mb-4 gap-4 text-center sm:text-right">
                 <div className="flex flex-col items-center sm:flex-row gap-4">
                      <div className="w-16 h-16 bg-slate-900 text-white rounded-lg flex items-center justify-center print-color-adjust-exact">
@@ -1119,19 +1117,19 @@ ${repair.parts.length > 0 ? `📦 *قطع الغيار:* ${repair.parts.join(', 
                 </div>
             </div>
 
-            {/* Details Grid: Stacked on small, 2-col on A4 */}
+            {/* Details Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 text-sm">
-                <div className="border border-slate-300 p-3 rounded">
+                <div className="border border-slate-300 p-3 rounded bg-slate-50 print:bg-slate-50">
                     <h3 className="font-bold text-xs text-slate-500 uppercase mb-1">العميل</h3>
                     <p className="font-bold text-lg">{invoiceData.client?.name}</p>
                     <p className="font-mono" dir="ltr">{invoiceData.client?.phone}</p>
                 </div>
-                <div className="border border-slate-300 p-3 rounded">
+                <div className="border border-slate-300 p-3 rounded bg-slate-50 print:bg-slate-50">
                     <h3 className="font-bold text-xs text-slate-500 uppercase mb-1">الجهاز</h3>
                     <p className="font-bold text-lg">{invoiceData.device?.brand} {invoiceData.device?.model}</p>
                     <div className="flex gap-2 text-xs mt-1">
-                         <span className="bg-slate-100 px-1 rounded">اللون: {invoiceData.device?.color || '-'}</span>
-                         <span className="bg-slate-100 px-1 rounded">رمز: {invoiceData.device?.passcode || '-'}</span>
+                         <span className="bg-white border px-1 rounded">اللون: {invoiceData.device?.color || '-'}</span>
+                         <span className="bg-white border px-1 rounded">رمز: {invoiceData.device?.passcode || '-'}</span>
                     </div>
                 </div>
             </div>
@@ -1139,44 +1137,57 @@ ${repair.parts.length > 0 ? `📦 *قطع الغيار:* ${repair.parts.join(', 
             {/* Table */}
             <table className="w-full mb-6 text-sm border-collapse">
                 <thead>
-                    <tr className="border-b-2 border-slate-800">
-                        <th className="py-2 text-right font-bold">الخدمة</th>
-                        <th className="py-2 text-center w-12">عدد</th>
-                        <th className="py-2 text-left w-20">السعر</th>
+                    <tr className="border-b-2 border-slate-800 bg-slate-100 print:bg-slate-100">
+                        <th className="py-2 px-2 text-right font-bold">الخدمة / التفاصيل</th>
+                        <th className="py-2 px-2 text-left w-24">التكلفة</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                      <tr>
-                        <td className="py-2">{invoiceData.repair.problem} (فحص)</td>
-                        <td className="text-center py-2">1</td>
-                        <td className="text-left py-2 font-mono">-</td>
+                        <td className="py-2 px-2">{invoiceData.repair.problem} (فحص وتشخيص)</td>
+                        <td className="text-left py-2 px-2 font-mono">-</td>
                     </tr>
                     {invoiceData.repair.services.map((s: string, i: number) => (
                         <tr key={`svc-${i}`}>
-                            <td className="py-2">{s}</td>
-                            <td className="text-center py-2">1</td>
-                            <td className="text-left py-2 font-mono">-</td>
+                            <td className="py-2 px-2">• {s}</td>
+                            <td className="text-left py-2 px-2 font-mono">-</td>
                         </tr>
                     ))}
                      {invoiceData.repair.parts.map((s: string, i: number) => (
                         <tr key={`prt-${i}`}>
-                            <td className="py-2">قطعة غيار: {s}</td>
-                            <td className="text-center py-2">1</td>
-                            <td className="text-left py-2 font-mono">-</td>
+                            <td className="py-2 px-2">📦 قطعة غيار: {s}</td>
+                            <td className="text-left py-2 px-2 font-mono">-</td>
                         </tr>
                     ))}
                 </tbody>
                 <tfoot className="border-t-2 border-slate-800">
-                    <tr className="font-bold text-lg">
-                        <td colSpan={2} className="pt-2 text-left">الإجمالي</td>
-                        <td className="pt-2 text-left font-mono">{invoiceData.repair.totalCost}</td>
+                    {invoiceData.repair.costParts > 0 && (
+                        <tr>
+                            <td className="pt-2 px-2 text-left text-slate-500 text-xs font-bold uppercase">قطع الغيار</td>
+                            <td className="pt-2 px-2 text-left font-mono">{invoiceData.repair.costParts}</td>
+                        </tr>
+                    )}
+                    {invoiceData.repair.costServices > 0 && (
+                        <tr>
+                            <td className="pt-1 px-2 text-left text-slate-500 text-xs font-bold uppercase">المصنعية / خدمات</td>
+                            <td className="pt-1 px-2 text-left font-mono">{invoiceData.repair.costServices}</td>
+                        </tr>
+                    )}
+                     {invoiceData.repair.costOther > 0 && (
+                        <tr>
+                            <td className="pt-1 px-2 text-left text-slate-500 text-xs font-bold uppercase">تكاليف أخرى</td>
+                            <td className="pt-1 px-2 text-left font-mono">{invoiceData.repair.costOther}</td>
+                        </tr>
+                    )}
+                    <tr className="text-xl bg-slate-100 print:bg-slate-200">
+                        <td className="py-3 px-2 text-left font-black text-slate-900">الإجمالي النهائي</td>
+                        <td className="py-3 px-2 text-left font-black font-mono text-slate-900">{invoiceData.repair.totalCost} ج.م</td>
                     </tr>
                 </tfoot>
             </table>
 
             {/* Footer - Signature & Terms */}
             <div className="mt-4 sm:mt-auto break-inside-avoid">
-                 {/* Signatures */}
                  <div className="grid grid-cols-2 gap-8 mb-6">
                      <div className="text-center">
                         <p className="text-[10px] font-bold text-slate-500 mb-6 uppercase">توقيع العميل</p>
@@ -1188,10 +1199,9 @@ ${repair.parts.length > 0 ? `📦 *قطع الغيار:* ${repair.parts.join(', 
                      </div>
                  </div>
                  
-                 {/* Terms */}
                  <div className="text-[9px] text-center text-slate-500 border-t border-slate-200 pt-2">
                     <p>ضمان 14 يوم على قطع الغيار. المركز غير مسؤول عن فقدان البيانات. يرجى استلام الجهاز خلال 30 يوم.</p>
-                    <p className="font-mono mt-1">Mido Repair Center - v3.2</p>
+                    <p className="font-mono mt-1">Mido Repair Center - 010xxxxxxxxx</p>
                  </div>
             </div>
 
