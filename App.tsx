@@ -4,7 +4,7 @@ import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-ro
 import { 
   Users, Smartphone, Wrench, Settings as SettingsIcon, LayoutDashboard, 
   Plus, Search, Trash2, Edit2, Printer, Save, Download, Upload,
-  CheckCircle, Clock, XCircle, PackageCheck, AlertCircle, Phone, MapPin, Receipt, ChevronDown, ChevronLeft, AlertTriangle, Calendar, Camera, Sparkles, Database, FileJson, MessageCircle, TrendingUp, DollarSign, PieChart, Wallet, TrendingDown, ArrowUpRight, ArrowDownRight
+  CheckCircle, Clock, XCircle, PackageCheck, AlertCircle, Phone, MapPin, Receipt, ChevronDown, ChevronLeft, AlertTriangle, Calendar, Camera, Sparkles, Database, FileJson, MessageCircle, TrendingUp, DollarSign, PieChart, Wallet, TrendingDown, ArrowUpRight, ArrowDownRight, Menu
 } from 'lucide-react';
 import { 
   loadDB, addClient, updateClient, deleteClient, 
@@ -200,7 +200,7 @@ const CameraModal = ({ onCapture, onClose }: { onCapture: (img: string) => void,
                     videoRef.current.srcObject = stream;
                 }
             } catch (err) {
-                alert("تعذر الوصول للكاميرا");
+                alert("تعذر الوصول للكاميرا، تأكد من منح الصلاحيات.");
                 onClose();
             }
         };
@@ -250,6 +250,8 @@ const CameraModal = ({ onCapture, onClose }: { onCapture: (img: string) => void,
 
 const Layout = ({ children }: any) => {
   const location = useLocation();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   const navItems = [
     { icon: LayoutDashboard, label: 'الرئيسية', path: '/' },
     { icon: Users, label: 'العملاء', path: '/clients' },
@@ -261,10 +263,22 @@ const Layout = ({ children }: any) => {
 
   return (
     <div className="flex h-screen bg-slate-100 text-slate-800 overflow-hidden print:block print:h-auto print:bg-white font-sans">
+      {/* Mobile Overlay */}
+      {isSidebarOpen && (
+        <div 
+            className="fixed inset-0 bg-slate-900/50 z-30 md:hidden backdrop-blur-sm"
+            onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl no-print z-20">
+      <aside className={`
+        fixed inset-y-0 right-0 z-40 w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl no-print transition-transform duration-300 ease-in-out
+        md:static md:translate-x-0
+        ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}
+      `}>
         <div className="p-6 flex items-center gap-3 border-b border-slate-800 bg-slate-950">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/50">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/50 shrink-0">
             <Wrench className="text-white" size={22} />
           </div>
           <div>
@@ -279,6 +293,7 @@ const Layout = ({ children }: any) => {
               <Link 
                 key={item.path} 
                 to={item.path}
+                onClick={() => setIsSidebarOpen(false)}
                 className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 font-bold text-sm ${isActive ? 'bg-blue-700 text-white shadow-lg shadow-blue-900/50 translate-x-1' : 'hover:bg-slate-800 hover:text-white'}`}
               >
                 <item.icon size={18} className={isActive ? 'text-blue-200' : 'text-slate-500'} />
@@ -293,10 +308,16 @@ const Layout = ({ children }: any) => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden relative bg-[#f8fafc]">
-        <header className="h-16 bg-white border-b flex items-center justify-between px-8 shadow-sm z-10 no-print">
-            <div className="flex items-center gap-2">
-                <h2 className="text-xl font-extrabold text-slate-800">
+      <main className="flex-1 flex flex-col overflow-hidden relative bg-[#f8fafc] w-full">
+        <header className="h-16 bg-white border-b flex items-center justify-between px-4 md:px-8 shadow-sm z-10 no-print shrink-0">
+            <div className="flex items-center gap-3">
+                <button 
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                >
+                    <Menu size={24} />
+                </button>
+                <h2 className="text-lg md:text-xl font-extrabold text-slate-800">
                     {navItems.find(i => i.path === location.pathname)?.label || 'ميدو للصيانة'}
                 </h2>
             </div>
@@ -361,9 +382,9 @@ const Dashboard = () => {
   }, []);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
       {backupWarning && (
-        <div className="bg-orange-50 border-r-4 border-orange-500 p-4 rounded shadow-sm flex items-center justify-between">
+        <div className="bg-orange-50 border-r-4 border-orange-500 p-4 rounded shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
            <div className="flex items-center gap-3">
              <div className="p-2 bg-orange-200 rounded-full"><AlertTriangle className="text-orange-700" size={20} /></div>
              <div>
@@ -371,14 +392,14 @@ const Dashboard = () => {
                 <p className="text-sm text-orange-700">لم يتم عمل نسخة احتياطية منذ فترة. يرجى حفظ بياناتك.</p>
              </div>
            </div>
-           <Link to="/settings" className="text-sm font-bold bg-orange-100 text-orange-800 px-4 py-2 rounded-lg hover:bg-orange-200">النسخ الآن</Link>
+           <Link to="/settings" className="text-sm font-bold bg-orange-100 text-orange-800 px-4 py-2 rounded-lg hover:bg-orange-200 w-full md:w-auto text-center">النسخ الآن</Link>
         </div>
       )}
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all hover:-translate-y-1">
-            <div className="bg-blue-500 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-200">
+            <div className="bg-blue-500 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-200 shrink-0">
               <Users size={26} />
             </div>
             <div>
@@ -388,7 +409,7 @@ const Dashboard = () => {
         </div>
         
         <div className="bg-white p-6 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all hover:-translate-y-1">
-            <div className="bg-amber-500 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-200">
+            <div className="bg-amber-500 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-200 shrink-0">
               <Clock size={26} />
             </div>
             <div>
@@ -398,7 +419,7 @@ const Dashboard = () => {
         </div>
 
          <div className="bg-white p-6 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all hover:-translate-y-1">
-            <div className="bg-emerald-600 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-200">
+            <div className="bg-emerald-600 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-200 shrink-0">
               <DollarSign size={26} />
             </div>
             <div>
@@ -478,26 +499,26 @@ const Expenses = () => {
     return (
         <div className="space-y-6">
              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="bg-white px-6 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div className="bg-white px-6 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 w-full md:w-auto">
                     <div className="p-2 bg-red-100 rounded-full text-red-600"><Wallet size={20}/></div>
                     <div>
                         <p className="text-xs text-slate-400 font-bold uppercase">إجمالي المصروفات</p>
                         <p className="text-xl font-black text-slate-800">{totalExpenses.toLocaleString()} ج.م</p>
                     </div>
                 </div>
-                <Button onClick={() => setIsModalOpen(true)} variant="danger">
+                <Button onClick={() => setIsModalOpen(true)} variant="danger" className="w-full md:w-auto">
                     <Plus size={18} /> تسجيل مصروف
                 </Button>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <table className="w-full text-right">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden overflow-x-auto">
+                <table className="w-full text-right min-w-[600px]">
                     <thead className="bg-slate-50 text-slate-700 text-sm font-bold border-b border-slate-200">
                         <tr>
                             <th className="p-4">البند</th>
                             <th className="p-4">التصنيف</th>
                             <th className="p-4">المبلغ</th>
-                            <th className="p-4 hidden md:table-cell">التاريخ</th>
+                            <th className="p-4">التاريخ</th>
                             <th className="p-4 hidden md:table-cell">ملاحظات</th>
                             <th className="p-4 text-center">حذف</th>
                         </tr>
@@ -512,7 +533,7 @@ const Expenses = () => {
                                     </span>
                                 </td>
                                 <td className="p-4 font-mono font-bold text-red-600">{ex.amount}</td>
-                                <td className="p-4 text-xs text-slate-500 hidden md:table-cell">{new Date(ex.date).toLocaleDateString('ar-EG')}</td>
+                                <td className="p-4 text-xs text-slate-500">{new Date(ex.date).toLocaleDateString('ar-EG')}</td>
                                 <td className="p-4 text-xs text-slate-400 hidden md:table-cell max-w-xs truncate">{ex.notes || '-'}</td>
                                 <td className="p-4 text-center">
                                     <button onClick={() => handleDelete(ex.id)} className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-full transition-colors"><Trash2 size={16}/></button>
@@ -606,13 +627,13 @@ const Clients = () => {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <Button onClick={() => { setEditingId(null); setFormData({name:'', phone:'', address:'', notes:''}); setIsModalOpen(true); }}>
+        <Button onClick={() => { setEditingId(null); setFormData({name:'', phone:'', address:'', notes:''}); setIsModalOpen(true); }} className="w-full md:w-auto">
             <Plus size={18} /> عميل جديد
         </Button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <table className="w-full text-right">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden overflow-x-auto">
+        <table className="w-full text-right min-w-[600px]">
           <thead className="bg-slate-50 text-slate-700 text-sm font-bold border-b border-slate-200">
             <tr>
               <th className="p-4">الاسم</th>
@@ -707,7 +728,7 @@ const DeviceForm = ({ initialData, onSubmit, onCancel, clients, catalog, onAddCa
 
             setFormData((prev: any) => ({ ...prev, ...updates }));
         } catch (error) {
-            alert("فشل التعرف على الجهاز. يرجى المحاولة مرة أخرى.");
+            alert("فشل التعرف على الجهاز. يرجى المحاولة مرة أخرى. (تأكد من الاتصال بالإنترنت)");
         } finally {
             setIsAnalyzing(false);
         }
@@ -718,8 +739,8 @@ const DeviceForm = ({ initialData, onSubmit, onCancel, clients, catalog, onAddCa
         {isCameraOpen && <CameraModal onCapture={handleAIAnalysis} onClose={() => setIsCameraOpen(false)} />}
         <form onSubmit={(e) => { e.preventDefault(); onSubmit(formData); }}>
             <div className="flex justify-center mb-8">
-                <Button variant="magic" onClick={() => setIsCameraOpen(true)} disabled={isAnalyzing} className="w-full py-3">
-                    {isAnalyzing ? <span className="animate-pulse">جاري تحليل الصورة...</span> : <><Camera size={20}/> مسح الجهاز بالكاميرا (AI Scan)</>}
+                <Button variant="magic" onClick={() => setIsCameraOpen(true)} disabled={isAnalyzing} className="w-full py-3 shadow-lg shadow-violet-200">
+                    {isAnalyzing ? <span className="animate-pulse">جاري تحليل الصورة...</span> : <><Camera size={20}/> مسح الجهاز بالكاميرا (AI)</>}
                 </Button>
             </div>
 
@@ -844,13 +865,13 @@ const Devices = () => {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <Button onClick={() => { setEditingId(null); setCurrentForm(defaultForm); setIsModalOpen(true); }}>
+        <Button onClick={() => { setEditingId(null); setCurrentForm(defaultForm); setIsModalOpen(true); }} className="w-full md:w-auto">
             <Plus size={18} /> إضافة جهاز
         </Button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <table className="w-full text-right">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden overflow-x-auto">
+        <table className="w-full text-right min-w-[700px]">
           <thead className="bg-slate-50 text-slate-700 text-sm font-bold border-b border-slate-200">
             <tr>
               <th className="p-4">الموديل</th>
@@ -976,23 +997,32 @@ const Repairs = () => {
     const device = data.devices.find(d => d.id === repair.deviceId);
     const client = data.clients.find(c => c.id === device?.clientId);
     setInvoiceData({ repair, device, client });
-    setTimeout(() => window.print(), 100);
+    setTimeout(() => window.print(), 200);
   };
 
   const openWhatsApp = (repair: Repair) => {
     const device = data.devices.find(d => d.id === repair.deviceId);
     const client = data.clients.find(c => c.id === device?.clientId);
     if (!client || !device) return;
+    
+    // Format phone number: Remove non-digits, remove leading 0, prepend 20 for Egypt
     let phone = client.phone.replace(/\D/g, '');
-    if (phone.startsWith('01')) phone = '20' + phone.substring(1);
+    if (phone.startsWith('0')) phone = phone.substring(1);
+    if (!phone.startsWith('20')) phone = '20' + phone;
 
-    const message = `مرحباً ${client.name}،
-جهازك: ${device.brand} ${device.model}
-رقم الأمر: ${repair.id.substring(0, 6)}
-العطل: ${repair.problem}
-الحالة: ${repair.status}
-التكلفة: ${repair.totalCost} ج.م
-شكراً لاختياركم ميدو للصيانة.`;
+    const message = `*مركز ميدو للصيانة* 🛠️
+مرحباً ${client.name}،
+
+تفاصيل جهازك: ${device.brand} ${device.model}
+رقم الإيصال: ${repair.id.substring(0, 6)}
+
+🔧 العطل/الخدمة: ${repair.problem}
+📊 الحالة الحالية: ${repair.status}
+💰 التكلفة الإجمالية: ${repair.totalCost} ج.م
+
+شكراً لثقتكم بنا.
+للاستفسار: 010xxxxxxxxx`;
+
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -1095,7 +1125,7 @@ const Repairs = () => {
             </table>
 
             {/* Footer - Signature & Terms */}
-            <div className="mt-4 sm:mt-auto">
+            <div className="mt-4 sm:mt-auto break-inside-avoid">
                  {/* Signatures */}
                  <div className="grid grid-cols-2 gap-8 mb-6">
                      <div className="text-center">
@@ -1131,25 +1161,25 @@ const Repairs = () => {
                     onChange={e => setSearch(e.target.value)}
                 />
              </div>
-             <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 md:py-0">
+             <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 md:py-0 w-full md:w-auto">
                 <Calendar size={16} className="text-slate-400"/>
                 <input 
                     type="date" 
-                    className="bg-transparent outline-none text-sm" 
+                    className="bg-transparent outline-none text-sm w-full md:w-auto" 
                     value={dateRange.start} 
                     onChange={e => setDateRange({...dateRange, start: e.target.value})}
                 />
-                <span className="text-slate-300">إلى</span>
+                <span className="text-slate-300 hidden md:inline">إلى</span>
                 <input 
                     type="date" 
-                    className="bg-transparent outline-none text-sm" 
+                    className="bg-transparent outline-none text-sm w-full md:w-auto" 
                     value={dateRange.end} 
                     onChange={e => setDateRange({...dateRange, end: e.target.value})}
                 />
              </div>
         </div>
-        <div className="flex items-center gap-2 justify-between">
-             <div className="flex gap-1 bg-white p-1 rounded-xl border border-slate-200 overflow-x-auto max-w-[200px] md:max-w-none">
+        <div className="flex items-center gap-2 justify-between overflow-x-auto pb-2 md:pb-0">
+             <div className="flex gap-1 bg-white p-1 rounded-xl border border-slate-200">
                 {['ALL', RepairStatus.PENDING, RepairStatus.DONE].map(s => (
                     <button 
                         key={s}
@@ -1166,8 +1196,8 @@ const Repairs = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden no-print">
-        <table className="w-full text-right">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden overflow-x-auto no-print">
+        <table className="w-full text-right min-w-[800px]">
           <thead className="bg-slate-50 text-slate-700 text-sm font-bold border-b border-slate-200">
             <tr>
               <th className="p-4">#</th>
@@ -1242,7 +1272,7 @@ const Repairs = () => {
 
             <div className="mb-6">
                 <label className="block text-sm font-bold text-slate-700 mb-2">حالة الصيانة</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {Object.values(RepairStatus).map(s => (
                         <div 
                             key={s} 
@@ -1304,19 +1334,19 @@ const Settings = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
          <div className="flex items-center gap-4 mb-6">
             <div className="p-3 bg-blue-100 rounded-xl text-blue-600"><Database size={24}/></div>
             <div>
                 <h3 className="text-xl font-bold text-slate-800">النسخ الاحتياطي والاستعادة</h3>
-                <p className="text-slate-500">بياناتك مخزنة محلياً على هذا المتصفح.</p>
+                <p className="text-slate-500 text-sm">بياناتك مخزنة محلياً على هذا المتصفح.</p>
             </div>
          </div>
          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Button onClick={exportDB} className="h-14 text-lg shadow-blue-200">
+            <Button onClick={exportDB} className="h-14 text-lg shadow-blue-200 w-full">
                 <Download size={20}/> تحميل نسخة كاملة
             </Button>
-            <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="h-14 text-lg">
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="h-14 text-lg w-full">
                 <Upload size={20}/> استعادة نسخة
             </Button>
             <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImport} />
@@ -1333,19 +1363,19 @@ const Settings = () => {
          </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
          <div className="flex items-center gap-4 mb-6">
             <div className="p-3 bg-indigo-100 rounded-xl text-indigo-600"><Smartphone size={24}/></div>
             <div>
                 <h3 className="text-xl font-bold text-slate-800">قائمة الهواتف (Catalog)</h3>
-                <p className="text-slate-500">تحديث قاعدة بيانات الموديلات.</p>
+                <p className="text-slate-500 text-sm">تحديث قاعدة بيانات الموديلات.</p>
             </div>
          </div>
-         <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 border-dashed">
-            <Button variant="secondary" onClick={() => catalogInputRef.current?.click()}>
+         <div className="flex flex-col md:flex-row items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 border-dashed">
+            <Button variant="secondary" onClick={() => catalogInputRef.current?.click()} className="w-full md:w-auto">
                 <Upload size={18}/> رفع ملف JSON
             </Button>
-            <p className="text-xs text-slate-500 flex-1">تنسيق: <code>[{`{ "brand": "X", "models": ["Y"] }`}]</code></p>
+            <p className="text-xs text-slate-500 flex-1 text-center md:text-right">تنسيق: <code>[{`{ "brand": "X", "models": ["Y"] }`}]</code></p>
             <input type="file" ref={catalogInputRef} className="hidden" accept=".json" onChange={handleCatalogImport} />
          </div>
       </div>
