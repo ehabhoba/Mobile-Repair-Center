@@ -4,16 +4,17 @@ import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-ro
 import { 
   Users, Smartphone, Wrench, Settings as SettingsIcon, LayoutDashboard, 
   Plus, Search, Trash2, Edit2, Printer, Save, Download, Upload,
-  CheckCircle, Clock, XCircle, PackageCheck, AlertCircle, Phone, MapPin, Receipt, ChevronDown, ChevronLeft, AlertTriangle, Calendar, Camera, Sparkles, Database, FileJson, MessageCircle, TrendingUp, DollarSign, PieChart
+  CheckCircle, Clock, XCircle, PackageCheck, AlertCircle, Phone, MapPin, Receipt, ChevronDown, ChevronLeft, AlertTriangle, Calendar, Camera, Sparkles, Database, FileJson, MessageCircle, TrendingUp, DollarSign, PieChart, Wallet, TrendingDown, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 import { 
   loadDB, addClient, updateClient, deleteClient, 
   addDevice, updateDevice, deleteDevice, 
   addRepair, updateRepair, deleteRepair,
+  addExpense, deleteExpense,
   exportDB, importDB, updateCatalog, getLastBackupDate, exportSpecificTable
 } from './services/storage';
 import { identifyDeviceFromImage } from './services/ai';
-import { Client, Device, Repair, DBData, RepairStatus, PhoneModel } from './types';
+import { Client, Device, Repair, DBData, RepairStatus, PhoneModel, Expense } from './types';
 
 // --- Constants & Configuration ---
 
@@ -28,6 +29,14 @@ const COMMON_SERVICES = [
   "تغيير سماعة / مايك",
   "اسكرينة حماية",
   "تنظيف وتطهير"
+];
+
+const EXPENSE_CATEGORIES = [
+    { id: 'RENT', label: 'إيجار المحل' },
+    { id: 'UTILITIES', label: 'كهرباء / مياه / نت' },
+    { id: 'SALARY', label: 'رواتب ومكافآت' },
+    { id: 'PARTS', label: 'شراء قطع غيار' },
+    { id: 'OTHER', label: 'مصروفات أخرى (بوفيه..)' },
 ];
 
 // --- Components ---
@@ -246,6 +255,7 @@ const Layout = ({ children }: any) => {
     { icon: Users, label: 'العملاء', path: '/clients' },
     { icon: Smartphone, label: 'الأجهزة', path: '/devices' },
     { icon: Wrench, label: 'الصيانة والفواتير', path: '/repairs' },
+    { icon: Wallet, label: 'المصروفات', path: '/expenses' },
     { icon: SettingsIcon, label: 'الإعدادات', path: '/settings' },
   ];
 
@@ -278,7 +288,7 @@ const Layout = ({ children }: any) => {
           })}
         </nav>
         <div className="p-4 border-t border-slate-800 text-[10px] text-slate-600 text-center font-mono">
-            v3.0.0 Build 2025
+            v3.1.0 Build 2025
         </div>
       </aside>
 
@@ -311,14 +321,14 @@ const Layout = ({ children }: any) => {
 };
 
 const Dashboard = () => {
-  const [stats, setStats] = useState({ clients: 0, devices: 0, pending: 0, income: 0, weeklyIncome: [0,0,0,0,0,0,0] });
+  const [stats, setStats] = useState({ clients: 0, devices: 0, pending: 0, income: 0, expenses: 0, netProfit: 0, weeklyIncome: [0,0,0,0,0,0,0] });
   const [backupWarning, setBackupWarning] = useState(false);
 
   useEffect(() => {
     const db = loadDB();
     const currentMonth = new Date().getMonth();
     
-    // Calculate Income
+    // Calculate Income (Repairs)
     const income = db.repairs
       .filter(r => {
           const d = new Date(r.entryDate);
@@ -326,14 +336,21 @@ const Dashboard = () => {
       })
       .reduce((acc, curr) => acc + (curr.totalCost || 0), 0);
 
-    // Mock weekly data based on repairs
-    const weekly = [10, 40, 25, 50, 30, 60, 80]; // Mock visual data for aesthetics
+    // Calculate Expenses
+    const expenses = db.expenses
+      .filter(e => new Date(e.date).getMonth() === currentMonth)
+      .reduce((acc, curr) => acc + curr.amount, 0);
+
+    // Mock weekly data based on repairs (visual approximation)
+    const weekly = [10, 40, 25, 50, 30, 60, 80]; 
 
     setStats({
       clients: db.clients.length,
       devices: db.devices.length,
       pending: db.repairs.filter(r => r.status === RepairStatus.PENDING || r.status === RepairStatus.IN_PROGRESS).length,
       income,
+      expenses,
+      netProfit: income - expenses,
       weeklyIncome: weekly
     });
 
@@ -359,64 +376,184 @@ const Dashboard = () => {
       )}
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { label: 'العملاء', value: stats.clients, icon: Users, color: 'bg-blue-500', sub: 'عميل مسجل' },
-          { label: 'الأجهزة', value: stats.devices, icon: Smartphone, color: 'bg-indigo-500', sub: 'جهاز في قاعدة البيانات' },
-          { label: 'قيد الانتظار', value: stats.pending, icon: Clock, color: 'bg-amber-500', sub: 'جهاز تحت الصيانة' },
-          { label: 'أرباح الشهر', value: stats.income.toLocaleString(), icon: DollarSign, color: 'bg-emerald-600', sub: 'جنية مصري' },
-        ].map((stat, i) => (
-          <div key={i} className="bg-white p-6 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all hover:-translate-y-1">
-            <div className={`${stat.color} w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-200`}>
-              <stat.icon size={26} />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all hover:-translate-y-1">
+            <div className="bg-blue-500 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-200">
+              <Users size={26} />
             </div>
             <div>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">{stat.label}</p>
-              <h3 className="text-2xl font-black text-slate-800">{stat.value}</h3>
-              <p className="text-xs text-slate-400 font-medium mt-1">{stat.sub}</p>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">العملاء المسجلين</p>
+              <h3 className="text-2xl font-black text-slate-800">{stats.clients}</h3>
             </div>
-          </div>
-        ))}
+        </div>
+        
+        <div className="bg-white p-6 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all hover:-translate-y-1">
+            <div className="bg-amber-500 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-200">
+              <Clock size={26} />
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">أجهزة قيد الانتظار</p>
+              <h3 className="text-2xl font-black text-slate-800">{stats.pending}</h3>
+            </div>
+        </div>
+
+         <div className="bg-white p-6 rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all hover:-translate-y-1">
+            <div className="bg-emerald-600 w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-slate-200">
+              <DollarSign size={26} />
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">إيرادات الشهر</p>
+              <h3 className="text-2xl font-black text-slate-800">{stats.income.toLocaleString()} <span className="text-xs font-medium text-slate-400">ج.م</span></h3>
+            </div>
+        </div>
       </div>
 
-      {/* Charts Section (Visual Only) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-         <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><TrendingUp size={20} className="text-blue-600"/> الأداء الأسبوعي</h3>
-                <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded">آخر 7 أيام</span>
+      {/* Financial Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Wallet size={20} className="text-red-500"/> المصروفات</h3>
+                <span className="text-xs font-bold bg-red-100 text-red-700 px-2 py-1 rounded">هذا الشهر</span>
             </div>
-            <div className="h-48 flex items-end justify-between gap-2">
-                {stats.weeklyIncome.map((val, i) => (
-                    <div key={i} className="w-full bg-blue-50 rounded-t-lg relative group overflow-hidden">
-                         <div 
-                            className="absolute bottom-0 left-0 right-0 bg-blue-500 hover:bg-blue-600 transition-all duration-500 rounded-t-lg" 
-                            style={{ height: `${val}%` }}
-                         ></div>
-                         <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                            {val}%
-                         </div>
-                    </div>
-                ))}
+            <div className="text-3xl font-black text-slate-800 mb-2">{stats.expenses.toLocaleString()} <span className="text-sm text-slate-400">ج.م</span></div>
+            <div className="w-full bg-slate-100 rounded-full h-2 mb-1">
+                <div className="bg-red-500 h-2 rounded-full" style={{ width: `${(stats.expenses / (stats.income || 1)) * 100}%`, maxWidth: '100%' }}></div>
             </div>
-            <div className="flex justify-between mt-2 text-xs text-slate-400 font-bold px-1">
-                <span>السبت</span><span>الأحد</span><span>الاثنين</span><span>الثلاثاء</span><span>الأربعاء</span><span>الخميس</span><span>الجمعة</span>
-            </div>
+            <p className="text-xs text-slate-400">نسبة المصروفات من الإيرادات</p>
          </div>
 
-         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
-            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4 border-4 border-slate-100">
-                <SettingsIcon size={32} className="text-slate-400" />
+         <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden`}>
+            <div className="flex items-center justify-between mb-4 relative z-10">
+                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                    {stats.netProfit >= 0 ? <ArrowUpRight size={20} className="text-emerald-500"/> : <ArrowDownRight size={20} className="text-red-500"/>} 
+                    صافي الربح
+                </h3>
+                <span className={`text-xs font-bold px-2 py-1 rounded ${stats.netProfit >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                    {stats.netProfit >= 0 ? 'مكسب' : 'خسارة'}
+                </span>
             </div>
-            <h3 className="font-bold text-slate-800 mb-2">الإجراءات السريعة</h3>
-            <div className="w-full space-y-3">
-                <Link to="/clients" className="block w-full"><Button variant="outline" className="w-full justify-start"><Users size={16}/> تسجيل عميل</Button></Link>
-                <Link to="/repairs" className="block w-full"><Button variant="primary" className="w-full justify-start"><Plus size={16}/> أمر صيانة جديد</Button></Link>
+            <div className={`text-3xl font-black mb-2 relative z-10 ${stats.netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                {stats.netProfit.toLocaleString()} <span className="text-sm text-slate-400 font-bold">ج.م</span>
             </div>
+            <p className="text-xs text-slate-400 relative z-10">بعد خصم جميع المصروفات التشغيلية</p>
+            {/* Decorational Background Icon */}
+            <PieChart className="absolute -bottom-4 -left-4 text-slate-50 opacity-50 w-32 h-32" />
          </div>
       </div>
     </div>
   );
+};
+
+const Expenses = () => {
+    const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [formData, setFormData] = useState({ title: '', amount: '', category: 'OTHER', notes: '' });
+
+    const loadData = () => setExpenses(loadDB().expenses.sort((a, b) => b.date - a.date));
+    useEffect(loadData, []);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        addExpense({
+            title: formData.title,
+            amount: Number(formData.amount),
+            category: formData.category as any,
+            date: Date.now(),
+            notes: formData.notes
+        });
+        setIsModalOpen(false);
+        setFormData({ title: '', amount: '', category: 'OTHER', notes: '' });
+        loadData();
+    };
+
+    const handleDelete = (id: string) => {
+        if (window.confirm('هل أنت متأكد من حذف هذا المصروف؟')) {
+            deleteExpense(id);
+            loadData();
+        }
+    };
+
+    const totalExpenses = expenses.reduce((acc, curr) => acc + curr.amount, 0);
+
+    return (
+        <div className="space-y-6">
+             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="bg-white px-6 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                    <div className="p-2 bg-red-100 rounded-full text-red-600"><Wallet size={20}/></div>
+                    <div>
+                        <p className="text-xs text-slate-400 font-bold uppercase">إجمالي المصروفات</p>
+                        <p className="text-xl font-black text-slate-800">{totalExpenses.toLocaleString()} ج.م</p>
+                    </div>
+                </div>
+                <Button onClick={() => setIsModalOpen(true)} variant="danger">
+                    <Plus size={18} /> تسجيل مصروف
+                </Button>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <table className="w-full text-right">
+                    <thead className="bg-slate-50 text-slate-700 text-sm font-bold border-b border-slate-200">
+                        <tr>
+                            <th className="p-4">البند</th>
+                            <th className="p-4">التصنيف</th>
+                            <th className="p-4">المبلغ</th>
+                            <th className="p-4 hidden md:table-cell">التاريخ</th>
+                            <th className="p-4 hidden md:table-cell">ملاحظات</th>
+                            <th className="p-4 text-center">حذف</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {expenses.map(ex => (
+                            <tr key={ex.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="p-4 font-bold text-slate-800">{ex.title}</td>
+                                <td className="p-4">
+                                    <span className="text-xs font-bold px-2 py-1 bg-slate-100 text-slate-600 rounded-full border">
+                                        {EXPENSE_CATEGORIES.find(c => c.id === ex.category)?.label}
+                                    </span>
+                                </td>
+                                <td className="p-4 font-mono font-bold text-red-600">{ex.amount}</td>
+                                <td className="p-4 text-xs text-slate-500 hidden md:table-cell">{new Date(ex.date).toLocaleDateString('ar-EG')}</td>
+                                <td className="p-4 text-xs text-slate-400 hidden md:table-cell max-w-xs truncate">{ex.notes || '-'}</td>
+                                <td className="p-4 text-center">
+                                    <button onClick={() => handleDelete(ex.id)} className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-full transition-colors"><Trash2 size={16}/></button>
+                                </td>
+                            </tr>
+                        ))}
+                        {expenses.length === 0 && (
+                             <tr><td colSpan={6} className="p-12 text-center text-slate-400">لا يوجد مصروفات مسجلة</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {isModalOpen && (
+                <Modal title="تسجيل مصروف جديد" onClose={() => setIsModalOpen(false)}>
+                    <form onSubmit={handleSubmit}>
+                        <Input label="عنوان المصروف" required value={formData.title} onChange={(e: any) => setFormData({...formData, title: e.target.value})} placeholder="مثال: فاتورة كهرباء شهر 5" />
+                        <div className="mb-4">
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5">التصنيف</label>
+                            <select 
+                                className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                value={formData.category}
+                                onChange={(e) => setFormData({...formData, category: e.target.value})}
+                            >
+                                {EXPENSE_CATEGORIES.map(cat => (
+                                    <option key={cat.id} value={cat.id}>{cat.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <Input label="المبلغ" type="number" required value={formData.amount} onChange={(e: any) => setFormData({...formData, amount: e.target.value})} suffix="ج.م" />
+                        <Input label="ملاحظات" value={formData.notes} onChange={(e: any) => setFormData({...formData, notes: e.target.value})} />
+                        
+                        <div className="mt-8 flex gap-3">
+                            <Button type="submit" variant="danger" className="flex-1">تسجيل المصروف</Button>
+                            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>إلغاء</Button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+        </div>
+    );
 };
 
 const Clients = () => {
@@ -523,7 +660,6 @@ const Clients = () => {
   );
 };
 
-// Subcomponent for Device Form to handle AI and logic
 const DeviceForm = ({ initialData, onSubmit, onCancel, clients, catalog, onAddCatalogModel }: any) => {
     const [formData, setFormData] = useState(initialData);
     const [availableModels, setAvailableModels] = useState<string[]>([]);
@@ -569,7 +705,7 @@ const DeviceForm = ({ initialData, onSubmit, onCancel, clients, catalog, onAddCa
                 updates.brand = matchedBrand.brand;
             }
 
-            setFormData(prev => ({ ...prev, ...updates }));
+            setFormData((prev: any) => ({ ...prev, ...updates }));
         } catch (error) {
             alert("فشل التعرف على الجهاز. يرجى المحاولة مرة أخرى.");
         } finally {
@@ -879,100 +1015,106 @@ const Repairs = () => {
     <div className="space-y-6">
       {/* Invoice Template (Print Only) */}
       {invoiceData && (
-        <div className="hidden print:flex print-only flex-col p-8 text-slate-900 h-full">
-          <div className="flex justify-between items-start border-b-4 border-blue-600 pb-6 mb-6">
-            <div className="flex items-center gap-4">
-                 <div className="w-20 h-20 bg-blue-600 rounded-lg flex items-center justify-center text-white print-color-adjust-exact">
-                    <Wrench size={40}/>
-                 </div>
-                 <div>
-                    <h1 className="text-4xl font-black text-slate-900">مركز ميدو</h1>
-                    <p className="text-slate-600 font-bold text-lg">Mido Repair Center</p>
-                    <p className="text-sm text-slate-500 mt-1">لصيانة المحمول والإلكترونيات</p>
-                 </div>
-            </div>
-            <div className="text-left">
-                <h2 className="text-3xl font-bold text-slate-800 uppercase tracking-widest">فاتورة</h2>
-                <p className="font-mono text-xl text-slate-600 font-bold">#{invoiceData.repair.id.substring(0, 6)}</p>
-                <p className="text-sm text-slate-500 mt-1">{new Date(invoiceData.repair.entryDate).toLocaleString('ar-EG')}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-8 mb-8">
-            <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 print-color-adjust-exact">
-                <h3 className="text-xs font-black text-slate-400 mb-3 uppercase tracking-wider">بيانات العميل</h3>
-                <p className="text-xl font-bold text-slate-800 mb-1">{invoiceData.client?.name}</p>
-                <p className="font-mono text-slate-600">{invoiceData.client?.phone}</p>
-            </div>
-             <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 print-color-adjust-exact">
-                <h3 className="text-xs font-black text-slate-400 mb-3 uppercase tracking-wider">بيانات الجهاز</h3>
-                <p className="text-xl font-bold text-slate-800 mb-1">{invoiceData.device?.brand} {invoiceData.device?.model}</p>
-                <div className="flex gap-4 text-sm text-slate-600 mt-2">
-                    <span><span className="font-bold">اللون:</span> {invoiceData.device?.color}</span>
-                    <span><span className="font-bold">الرمز:</span> {invoiceData.device?.passcode}</span>
+        <div className="hidden print:flex print-only flex-col bg-white w-full h-full text-slate-900 font-sans">
+          
+          {/* Container - uses minimal padding for small print, more for A4 if possible. 
+              Tailwind 'sm:' breakpoint separates receipts (mobile-first) from A4 (desktop/larger). */}
+          <div className="p-2 sm:p-8 w-full max-w-[100%] mx-auto flex-1 flex flex-col">
+            
+            {/* Header: Stacked on small (Receipt), Row on A4 */}
+            <div className="flex flex-col sm:flex-row justify-between items-center border-b-2 border-slate-800 pb-4 mb-4 gap-4 text-center sm:text-right">
+                <div className="flex flex-col items-center sm:flex-row gap-4">
+                     <div className="w-16 h-16 bg-slate-900 text-white rounded-lg flex items-center justify-center print-color-adjust-exact">
+                        <Wrench size={32}/>
+                     </div>
+                     <div>
+                        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase">مركز ميدو</h1>
+                        <p className="text-sm sm:text-base font-bold text-slate-600">Mido Repair Center</p>
+                     </div>
+                </div>
+                <div className="text-center sm:text-left">
+                    <h2 className="text-xl font-bold text-slate-800 uppercase tracking-widest border-2 border-slate-800 px-2 inline-block mb-1">فاتورة</h2>
+                    <p className="font-mono text-lg font-bold">#{invoiceData.repair.id.substring(0, 6)}</p>
+                    <p className="text-xs text-slate-500">{new Date(invoiceData.repair.entryDate).toLocaleString('ar-EG')}</p>
                 </div>
             </div>
-          </div>
 
-          <table className="w-full mb-8 border-collapse">
-            <thead>
-                <tr className="bg-slate-800 text-white print-color-adjust-exact">
-                    <th className="p-4 text-right rounded-tr-lg text-sm font-bold uppercase">الوصف / الخدمة</th>
-                    <th className="p-4 text-center text-sm font-bold uppercase">العدد</th>
-                    <th className="p-4 text-left rounded-tl-lg text-sm font-bold uppercase">السعر</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr className="border-b border-slate-200">
-                    <td className="p-4 font-bold text-slate-800">{invoiceData.repair.problem} (تشخيص)</td>
-                    <td className="p-4 text-center">1</td>
-                    <td className="p-4 text-left font-mono">-</td>
-                </tr>
-                {invoiceData.repair.services.map((s: string, i: number) => (
-                    <tr key={`svc-${i}`} className="border-b border-slate-100">
-                        <td className="p-4 text-slate-700">خدمة: {s}</td>
-                        <td className="p-4 text-center">1</td>
-                        <td className="p-4 text-left font-mono">-</td>
+            {/* Details Grid: Stacked on small, 2-col on A4 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 text-sm">
+                <div className="border border-slate-300 p-3 rounded">
+                    <h3 className="font-bold text-xs text-slate-500 uppercase mb-1">العميل</h3>
+                    <p className="font-bold text-lg">{invoiceData.client?.name}</p>
+                    <p className="font-mono" dir="ltr">{invoiceData.client?.phone}</p>
+                </div>
+                <div className="border border-slate-300 p-3 rounded">
+                    <h3 className="font-bold text-xs text-slate-500 uppercase mb-1">الجهاز</h3>
+                    <p className="font-bold text-lg">{invoiceData.device?.brand} {invoiceData.device?.model}</p>
+                    <div className="flex gap-2 text-xs mt-1">
+                         <span className="bg-slate-100 px-1 rounded">اللون: {invoiceData.device?.color || '-'}</span>
+                         <span className="bg-slate-100 px-1 rounded">رمز: {invoiceData.device?.passcode || '-'}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Table */}
+            <table className="w-full mb-6 text-sm border-collapse">
+                <thead>
+                    <tr className="border-b-2 border-slate-800">
+                        <th className="py-2 text-right font-bold">الخدمة</th>
+                        <th className="py-2 text-center w-12">عدد</th>
+                        <th className="py-2 text-left w-20">السعر</th>
                     </tr>
-                ))}
-                {invoiceData.repair.parts.map((p: string, i: number) => (
-                    <tr key={`prt-${i}`} className="border-b border-slate-100">
-                        <td className="p-4 text-slate-700">قطعة غيار: {p}</td>
-                        <td className="p-4 text-center">1</td>
-                        <td className="p-4 text-left font-mono">-</td>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                     <tr>
+                        <td className="py-2">{invoiceData.repair.problem} (فحص)</td>
+                        <td className="text-center py-2">1</td>
+                        <td className="text-left py-2 font-mono">-</td>
                     </tr>
-                ))}
-            </tbody>
-            <tfoot className="bg-slate-50 print-color-adjust-exact">
-                <tr>
-                    <td colSpan={2} className="p-4 font-bold text-slate-700 text-left border-t">قطع الغيار</td>
-                    <td className="p-4 font-mono text-left border-t">{invoiceData.repair.costParts}</td>
-                </tr>
-                 <tr>
-                    <td colSpan={2} className="p-4 font-bold text-slate-700 text-left border-t">المصنعية والخدمات</td>
-                    <td className="p-4 font-mono text-left border-t">{invoiceData.repair.costServices}</td>
-                </tr>
-                <tr className="bg-slate-800 text-white text-xl print-color-adjust-exact">
-                     <td colSpan={2} className="p-5 font-extrabold text-left rounded-br-lg">الإجمالي المستحق</td>
-                     <td className="p-5 font-mono font-bold text-left rounded-bl-lg">{invoiceData.repair.totalCost} ج.م</td>
-                </tr>
-            </tfoot>
-          </table>
+                    {invoiceData.repair.services.map((s: string, i: number) => (
+                        <tr key={`svc-${i}`}>
+                            <td className="py-2">{s}</td>
+                            <td className="text-center py-2">1</td>
+                            <td className="text-left py-2 font-mono">-</td>
+                        </tr>
+                    ))}
+                     {invoiceData.repair.parts.map((s: string, i: number) => (
+                        <tr key={`prt-${i}`}>
+                            <td className="py-2">قطعة غيار: {s}</td>
+                            <td className="text-center py-2">1</td>
+                            <td className="text-left py-2 font-mono">-</td>
+                        </tr>
+                    ))}
+                </tbody>
+                <tfoot className="border-t-2 border-slate-800">
+                    <tr className="font-bold text-lg">
+                        <td colSpan={2} className="pt-2 text-left">الإجمالي</td>
+                        <td className="pt-2 text-left font-mono">{invoiceData.repair.totalCost}</td>
+                    </tr>
+                </tfoot>
+            </table>
 
-          <div className="mt-auto pt-12">
-             <div className="grid grid-cols-2 gap-8 text-center mb-8">
-                <div>
-                    <p className="text-xs font-bold text-slate-400 mb-8 uppercase">توقيع العميل</p>
-                    <div className="border-b border-slate-300 w-2/3 mx-auto"></div>
-                </div>
-                <div>
-                     <p className="text-xs font-bold text-slate-400 mb-8 uppercase">ختم المركز</p>
-                     <div className="border-b border-slate-300 w-2/3 mx-auto"></div>
-                </div>
-             </div>
-             <div className="text-[10px] text-slate-400 border-t pt-4 text-center">
-                <p>تطبق الشروط والأحكام | الضمان 14 يوم على قطع الغيار المستبدلة فقط | المركز غير مسؤول عن فقدان البيانات</p>
-             </div>
+            {/* Footer - Signature & Terms */}
+            <div className="mt-4 sm:mt-auto">
+                 {/* Signatures */}
+                 <div className="grid grid-cols-2 gap-8 mb-6">
+                     <div className="text-center">
+                        <p className="text-[10px] font-bold text-slate-500 mb-6 uppercase">توقيع العميل</p>
+                        <div className="border-b border-slate-800 w-3/4 mx-auto border-dashed"></div>
+                     </div>
+                     <div className="text-center">
+                        <p className="text-[10px] font-bold text-slate-500 mb-6 uppercase">ختم المركز</p>
+                        <div className="border-b border-slate-800 w-3/4 mx-auto border-dashed"></div>
+                     </div>
+                 </div>
+                 
+                 {/* Terms */}
+                 <div className="text-[9px] text-center text-slate-500 border-t border-slate-200 pt-2">
+                    <p>ضمان 14 يوم على قطع الغيار. المركز غير مسؤول عن فقدان البيانات. يرجى استلام الجهاز خلال 30 يوم.</p>
+                    <p className="font-mono mt-1">Mido Repair Center - v3.1</p>
+                 </div>
+            </div>
+
           </div>
         </div>
       )}
@@ -1186,6 +1328,7 @@ const Settings = () => {
                 <Button variant="secondary" onClick={() => exportSpecificTable('clients')} className="text-xs">العملاء فقط</Button>
                 <Button variant="secondary" onClick={() => exportSpecificTable('devices')} className="text-xs">الأجهزة فقط</Button>
                 <Button variant="secondary" onClick={() => exportSpecificTable('repairs')} className="text-xs">الصيانات فقط</Button>
+                <Button variant="secondary" onClick={() => exportSpecificTable('expenses')} className="text-xs">المصروفات فقط</Button>
             </div>
          </div>
       </div>
@@ -1223,6 +1366,7 @@ const App = () => {
           <Route path="/clients" element={<Clients />} />
           <Route path="/devices" element={<Devices />} />
           <Route path="/repairs" element={<Repairs />} />
+          <Route path="/expenses" element={<Expenses />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

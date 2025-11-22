@@ -1,4 +1,5 @@
-import { DBData, Client, Device, Repair, PhoneModel, RepairStatus } from '../types';
+
+import { DBData, Client, Device, Repair, PhoneModel, RepairStatus, Expense } from '../types';
 
 const DB_KEY = 'mido_repair_shop_v1'; // تم تغيير المفتاح لاسم المحل
 const BACKUP_DATE_KEY = 'mido_last_backup_date';
@@ -15,6 +16,7 @@ const INITIAL_DB: DBData = {
   clients: [],
   devices: [],
   repairs: [],
+  expenses: [],
   catalog: DEFAULT_CATALOG,
 };
 
@@ -30,6 +32,7 @@ export const loadDB = (): DBData => {
   try {
     const parsed = JSON.parse(stored);
     if (!parsed.catalog) parsed.catalog = DEFAULT_CATALOG;
+    if (!parsed.expenses) parsed.expenses = []; // Ensure expenses exist for old DBs
     return parsed;
   } catch (e) {
     console.error("Failed to parse DB", e);
@@ -136,6 +139,21 @@ export const deleteRepair = (id: string) => {
     saveDB(db);
 }
 
+// --- Expenses ---
+export const addExpense = (expense: Omit<Expense, 'id'>): Expense => {
+  const db = loadDB();
+  const newExpense: Expense = { ...expense, id: generateId() };
+  db.expenses.push(newExpense);
+  saveDB(db);
+  return newExpense;
+};
+
+export const deleteExpense = (id: string) => {
+  const db = loadDB();
+  db.expenses = db.expenses.filter(e => e.id !== id);
+  saveDB(db);
+};
+
 // --- Catalog ---
 export const updateCatalog = (catalog: PhoneModel[]) => {
   const db = loadDB();
@@ -161,7 +179,7 @@ export const exportDB = () => {
   localStorage.setItem(BACKUP_DATE_KEY, Date.now().toString());
 };
 
-export const exportSpecificTable = (key: 'clients' | 'devices' | 'repairs') => {
+export const exportSpecificTable = (key: 'clients' | 'devices' | 'repairs' | 'expenses') => {
     const db = loadDB();
     const data = db[key];
     downloadJSON(data, `Mido_${key.toUpperCase()}_${new Date().toISOString().split('T')[0]}.json`);
@@ -175,16 +193,10 @@ export const importDB = (file: File): Promise<boolean> => {
         const json = JSON.parse(event.target?.result as string);
         // Simple validation logic
         if (json.clients || json.devices || json.repairs) {
-          // If full DB structure
           if (json.clients && Array.isArray(json.clients)) saveDB(json);
-          // If partial structure (advanced logic omitted for simplicity, assumes full replacement for now or valid structure)
-          
-          // Reset backup timer on import
           localStorage.setItem(BACKUP_DATE_KEY, Date.now().toString());
           resolve(true);
         } else if (Array.isArray(json)) {
-            // Allow importing raw arrays if user knows what they are doing? 
-            // For now, strict full DB import is safer for the user.
             reject(new Error("صيغة الملف غير مدعومة. يرجى استخدام ملف نسخة احتياطية كامل."));
         } else {
           reject(new Error("صيغة الملف غير صحيحة"));

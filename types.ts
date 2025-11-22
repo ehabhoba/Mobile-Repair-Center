@@ -1,3 +1,4 @@
+
 export interface Client {
   id: string;
   name: string;
@@ -50,9 +51,19 @@ export interface PhoneModel {
   models: string[];
 }
 
+export interface Expense {
+  id: string;
+  title: string;
+  amount: number;
+  category: 'RENT' | 'UTILITIES' | 'SALARY' | 'PARTS' | 'OTHER';
+  date: number;
+  notes?: string;
+}
+
 export interface DBData {
   clients: Client[];
   devices: Device[];
   repairs: Repair[];
+  expenses: Expense[];
   catalog: PhoneModel[];
 }

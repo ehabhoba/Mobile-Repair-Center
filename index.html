@@ -31,8 +31,8 @@
       /* تنسيقات الطباعة (الفاتورة) */
       @media print {
         @page {
-            size: A4;
-            margin: 0;
+            size: auto; /* auto allows adaptation to selected paper size (A4 or 80mm) */
+            margin: 0mm;
         }
         body {
           background-color: white;
@@ -44,12 +44,12 @@
           display: none !important;
         }
         .print-only {
-          display: block !important;
-          position: fixed;
+          display: flex !important;
+          position: absolute;
           top: 0;
           left: 0;
-          width: 100vw;
-          height: 100vh;
+          width: 100%;
+          min-height: 100%;
           background: white;
           z-index: 9999;
           padding: 0;
@@ -65,12 +65,14 @@
   <script type="importmap">
 {
   "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
     "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
   }
 }
 </script>

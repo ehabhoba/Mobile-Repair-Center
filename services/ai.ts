@@ -1,7 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
 
-// Initialize AI with the API key from environment variables
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+import { GoogleGenAI } from "@google/genai";
 
 export interface AIAnalysisResult {
   brand?: string;
@@ -11,6 +9,10 @@ export interface AIAnalysisResult {
 
 export async function identifyDeviceFromImage(base64Image: string): Promise<AIAnalysisResult> {
   try {
+    // Fix: Initialize AI client using process.env.API_KEY directly as per guidelines
+    // Assume process.env.API_KEY is available via Vite define
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
     // Strip header if exists (data:image/jpeg;base64,...)
     const cleanData = base64Image.split(',')[1] || base64Image;
 
@@ -33,6 +35,6 @@ export async function identifyDeviceFromImage(base64Image: string): Promise<AIAn
     return JSON.parse(jsonStr);
   } catch (error) {
     console.error("AI Analysis Error:", error);
-    throw new Error("فشل تحليل الصورة. يرجى المحاولة مرة أخرى أو الإدخال يدوياً.");
+    throw new Error("فشل تحليل الصورة. تأكد من إعداد مفتاح API بشكل صحيح.");
   }
 }
