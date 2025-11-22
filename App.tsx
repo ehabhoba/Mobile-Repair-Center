@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { 
@@ -1361,6 +1362,7 @@ ${repair.parts.length > 0 ? `📦 *قطع الغيار:* ${repair.parts.join(', 
 const Settings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const catalogInputRef = useRef<HTMLInputElement>(null);
+  const [manualCatalog, setManualCatalog] = useState({ brand: '', model: '' });
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
@@ -1392,6 +1394,14 @@ const Settings = () => {
         };
         reader.readAsText(e.target.files[0]);
       }
+  };
+
+  const handleManualCatalogAdd = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!manualCatalog.brand || !manualCatalog.model) return;
+      addModelToCatalog(manualCatalog.brand, manualCatalog.model);
+      alert("تم إضافة الموديل بنجاح");
+      setManualCatalog({ brand: '', model: '' });
   };
 
   return (
@@ -1439,6 +1449,33 @@ const Settings = () => {
             </Button>
             <p className="text-xs text-slate-500 flex-1 text-center md:text-right">تنسيق: <code>[{`{ "brand": "X", "models": ["Y"] }`}]</code></p>
             <input type="file" ref={catalogInputRef} className="hidden" accept=".json" onChange={handleCatalogImport} />
+         </div>
+         
+         <div className="mt-6 pt-6 border-t border-slate-100">
+             <h4 className="font-bold text-slate-700 mb-4 text-sm">إضافة يدوية سريعة</h4>
+             <form onSubmit={handleManualCatalogAdd} className="flex flex-col md:flex-row gap-3 items-end">
+                 <div className="w-full">
+                     <label className="block text-xs font-bold text-slate-500 mb-1">الماركة</label>
+                     <input 
+                        className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-sm outline-none focus:border-blue-500"
+                        placeholder="مثال: Samsung"
+                        value={manualCatalog.brand}
+                        onChange={e => setManualCatalog({...manualCatalog, brand: e.target.value})}
+                     />
+                 </div>
+                 <div className="w-full">
+                     <label className="block text-xs font-bold text-slate-500 mb-1">الموديل</label>
+                     <input 
+                        className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-sm outline-none focus:border-blue-500"
+                        placeholder="مثال: S24 Ultra"
+                        value={manualCatalog.model}
+                        onChange={e => setManualCatalog({...manualCatalog, model: e.target.value})}
+                     />
+                 </div>
+                 <Button type="submit" size="sm" className="h-[38px] whitespace-nowrap">
+                     <Plus size={16}/> إضافة
+                 </Button>
+             </form>
          </div>
       </div>
 
