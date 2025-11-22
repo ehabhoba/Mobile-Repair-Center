@@ -1,11 +1,17 @@
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Hardcoded key to ensure 100% functionality immediately after deployment as requested
-    'process.env.API_KEY': JSON.stringify("AIzaSyAK3LA-F1e7u0dxCZkVKTzfSR0AdO2ZHCU"),
+    // Injecting multiple keys for rotation strategy to ensure 100% uptime
+    'process.env.AI_KEYS': JSON.stringify([
+      "AIzaSyAK3LA-F1e7u0dxCZkVKTzfSR0AdO2ZHCU",
+      "AIzaSyB6jnqtwtZ-p2G_8D9KMhvhlNywwLhw3HQ",
+      "AIzaSyAXccWf2TjqeOtynlrb0-2wTtl8GI76Br8",
+      "AIzaSyDIOaVEEaKlxBzE4cZDO2Io-Ne8IE3-oHQ"
+    ]),
   },
   build: {
     outDir: 'dist',

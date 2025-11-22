@@ -4,14 +4,15 @@ import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-ro
 import { 
   Users, Smartphone, Wrench, Settings as SettingsIcon, LayoutDashboard, 
   Plus, Search, Trash2, Edit2, Printer, Save, Download, Upload,
-  CheckCircle, Clock, XCircle, PackageCheck, AlertCircle, Phone, MapPin, Receipt, ChevronDown, ChevronLeft, AlertTriangle, Calendar, Camera, Sparkles, Database, FileJson, MessageCircle, TrendingUp, DollarSign, PieChart, Wallet, TrendingDown, ArrowUpRight, ArrowDownRight, Menu
+  CheckCircle, Clock, XCircle, PackageCheck, AlertCircle, Phone, MapPin, Receipt, ChevronDown, ChevronLeft, AlertTriangle, Calendar, Camera, Sparkles, Database, FileJson, MessageCircle, TrendingUp, DollarSign, PieChart, Wallet, TrendingDown, ArrowUpRight, ArrowDownRight, Menu, Share2
 } from 'lucide-react';
 import { 
   loadDB, addClient, updateClient, deleteClient, 
   addDevice, updateDevice, deleteDevice, 
   addRepair, updateRepair, deleteRepair,
   addExpense, deleteExpense,
-  exportDB, importDB, updateCatalog, getLastBackupDate, exportSpecificTable
+  exportDB, importDB, updateCatalog, getLastBackupDate, exportSpecificTable,
+  addModelToCatalog
 } from './services/storage';
 import { identifyDeviceFromImage } from './services/ai';
 import { Client, Device, Repair, DBData, RepairStatus, PhoneModel, Expense } from './types';
@@ -50,7 +51,7 @@ const Button = ({ children, onClick, variant = 'primary', className = '', type =
     secondary: "bg-slate-200 text-slate-800 hover:bg-slate-300",
     outline: "border-2 border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-50",
     magic: "bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 shadow-md",
-    whatsapp: "bg-[#25D366] text-white hover:bg-[#128C7E]"
+    whatsapp: "bg-[#25D366] text-white hover:bg-[#128C7E] shadow-sm"
   };
   return (
     <button type={type} onClick={onClick} disabled={disabled} className={`${baseClass} ${variants[variant]} ${className}`} title={title}>
@@ -303,7 +304,7 @@ const Layout = ({ children }: any) => {
           })}
         </nav>
         <div className="p-4 border-t border-slate-800 text-[10px] text-slate-600 text-center font-mono">
-            v3.1.0 Build 2025
+            v3.2.0 Build 2025
         </div>
       </aside>
 
@@ -353,7 +354,7 @@ const Dashboard = () => {
     const income = db.repairs
       .filter(r => {
           const d = new Date(r.entryDate);
-          return d.getMonth() === currentMonth && (r.status === RepairStatus.DONE || r.status === RepairStatus.DELIVERED);
+          return d.getMonth() === currentMonth && (r.status === RepairStatus.DONE || r.status === RepairStatus.DELIVERING);
       })
       .reduce((acc, curr) => acc + (curr.totalCost || 0), 0);
 
@@ -687,6 +688,7 @@ const DeviceForm = ({ initialData, onSubmit, onCancel, clients, catalog, onAddCa
     const [isManualModel, setIsManualModel] = useState(false);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [detectedNewModel, setDetectedNewModel] = useState<{brand: string, model: string} | null>(null);
 
     useEffect(() => {
         const selectedBrand = catalog.find((b: PhoneModel) => b.brand === formData.brand);
@@ -711,9 +713,20 @@ const DeviceForm = ({ initialData, onSubmit, onCancel, clients, catalog, onAddCa
         }
     };
 
+    const confirmAddCatalog = () => {
+        if (detectedNewModel && onAddCatalogModel) {
+            onAddCatalogModel(detectedNewModel.brand, detectedNewModel.model);
+            // After adding, select it
+            setFormData({ ...formData, brand: detectedNewModel.brand, model: detectedNewModel.model });
+            setDetectedNewModel(null);
+            setIsManualModel(false);
+        }
+    };
+
     const handleAIAnalysis = async (imgData: string) => {
         setIsCameraOpen(false);
         setIsAnalyzing(true);
+        setDetectedNewModel(null);
         try {
             const result = await identifyDeviceFromImage(imgData);
             let updates: any = {};
@@ -721,9 +734,14 @@ const DeviceForm = ({ initialData, onSubmit, onCancel, clients, catalog, onAddCa
             if (result.model) updates.model = result.model;
             if (result.color) updates.color = result.color;
             
-            const matchedBrand = catalog.find((c: PhoneModel) => c.brand.toLowerCase() === result.brand?.toLowerCase());
-            if (matchedBrand) {
-                updates.brand = matchedBrand.brand;
+            // Check if exists in catalog
+            const brandExists = catalog.find((c: PhoneModel) => c.brand.toLowerCase() === result.brand?.toLowerCase());
+            const modelExists = brandExists?.models.some((m: string) => m.toLowerCase() === result.model?.toLowerCase());
+
+            if (result.brand && result.model && (!brandExists || !modelExists)) {
+                setDetectedNewModel({ brand: result.brand, model: result.model || '' });
+            } else if (brandExists) {
+                updates.brand = brandExists.brand; // Normalize brand name
             }
 
             setFormData((prev: any) => ({ ...prev, ...updates }));
@@ -743,6 +761,15 @@ const DeviceForm = ({ initialData, onSubmit, onCancel, clients, catalog, onAddCa
                     {isAnalyzing ? <span className="animate-pulse">جاري تحليل الصورة...</span> : <><Camera size={20}/> مسح الجهاز بالكاميرا (AI)</>}
                 </Button>
             </div>
+
+            {detectedNewModel && (
+               <div className="bg-blue-50 p-3 rounded border border-blue-200 mb-4 flex justify-between items-center animate-in fade-in">
+                  <span className="text-sm text-slate-700">
+                      تم اكتشاف موديل جديد: <b>{detectedNewModel.brand} {detectedNewModel.model}</b>. هل تريد إضافته للقائمة؟
+                  </span>
+                  <Button size="sm" onClick={confirmAddCatalog} className="text-xs h-8">إضافة للقائمة</Button>
+               </div>
+            )}
 
             <SearchableSelect 
                 label="العميل (المالك)" 
@@ -847,6 +874,11 @@ const Devices = () => {
       }
   };
 
+  const handleAddCatalogModel = (brand: string, model: string) => {
+      addModelToCatalog(brand, model);
+      loadData(); // Reload to update available catalog
+  };
+
   const filteredDevices = data.devices.filter(d => 
     d.model.toLowerCase().includes(search.toLowerCase()) || 
     d.imei?.includes(search) || 
@@ -924,6 +956,7 @@ const Devices = () => {
                 onCancel={() => setIsModalOpen(false)}
                 clients={data.clients}
                 catalog={data.catalog}
+                onAddCatalogModel={handleAddCatalogModel}
             />
         </Modal>
       )}
@@ -1010,17 +1043,29 @@ const Repairs = () => {
     if (phone.startsWith('0')) phone = phone.substring(1);
     if (!phone.startsWith('20')) phone = '20' + phone;
 
+    // Detailed invoice message
     const message = `*مركز ميدو للصيانة* 🛠️
 مرحباً ${client.name}،
 
-تفاصيل جهازك: ${device.brand} ${device.model}
+📜 *تفاصيل الفاتورة*
 رقم الإيصال: ${repair.id.substring(0, 6)}
+الجهاز: ${device.brand} ${device.model}
 
-🔧 العطل/الخدمة: ${repair.problem}
-📊 الحالة الحالية: ${repair.status}
-💰 التكلفة الإجمالية: ${repair.totalCost} ج.م
+🔧 *الخدمات:*
+${repair.problem} (فحص)
+${repair.services.map(s => `• ${s}`).join('\n')}
+${repair.parts.length > 0 ? `📦 *قطع الغيار:* ${repair.parts.join(', ')}` : ''}
 
-شكراً لثقتكم بنا.
+💰 *التفاصيل المالية:*
+- قطع الغيار: ${repair.costParts} ج.م
+- المصنعية: ${repair.costServices} ج.م
+- أخرى: ${repair.costOther} ج.م
+-------------------
+*الإجمالي: ${repair.totalCost} ج.م*
+
+📊 الحالة: ${repair.status}
+
+شكراً لثقتكم بنا!
 للاستفسار: 010xxxxxxxxx`;
 
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
@@ -1141,7 +1186,7 @@ const Repairs = () => {
                  {/* Terms */}
                  <div className="text-[9px] text-center text-slate-500 border-t border-slate-200 pt-2">
                     <p>ضمان 14 يوم على قطع الغيار. المركز غير مسؤول عن فقدان البيانات. يرجى استلام الجهاز خلال 30 يوم.</p>
-                    <p className="font-mono mt-1">Mido Repair Center - v3.1</p>
+                    <p className="font-mono mt-1">Mido Repair Center - v3.2</p>
                  </div>
             </div>
 
@@ -1225,7 +1270,9 @@ const Repairs = () => {
                     <td className="p-4 text-xs text-slate-500 hidden md:table-cell">{new Date(repair.entryDate).toLocaleDateString('ar-EG')}</td>
                     <td className="p-4"><Badge status={repair.status} /></td>
                     <td className="p-4 flex justify-center gap-1">
-                        <button onClick={() => openWhatsApp(repair)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-md transition-colors" title="واتساب"><MessageCircle size={18}/></button>
+                        <button onClick={() => openWhatsApp(repair)} className="p-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-md transition-colors flex items-center gap-1 font-bold text-xs" title="إرسال فاتورة واتساب">
+                            <Share2 size={16}/> <span className="hidden lg:inline">واتساب</span>
+                        </button>
                         <button onClick={() => printInvoice(repair)} className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-md transition-colors" title="طباعة"><Printer size={18}/></button>
                         <button onClick={() => handleEdit(repair)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="تعديل"><Edit2 size={18}/></button>
                         <button onClick={() => handleDelete(repair.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors" title="حذف"><Trash2 size={18}/></button>

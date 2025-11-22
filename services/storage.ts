@@ -161,6 +161,23 @@ export const updateCatalog = (catalog: PhoneModel[]) => {
   saveDB(db);
 };
 
+export const addModelToCatalog = (brand: string, model: string) => {
+  const db = loadDB();
+  const existingBrandIndex = db.catalog.findIndex(c => c.brand.toLowerCase() === brand.toLowerCase());
+  
+  if (existingBrandIndex >= 0) {
+      // Brand exists, check if model exists
+      const existingBrand = db.catalog[existingBrandIndex];
+      if (!existingBrand.models.some(m => m.toLowerCase() === model.toLowerCase())) {
+          existingBrand.models.push(model);
+      }
+  } else {
+      // Create new brand
+      db.catalog.push({ brand: brand, models: [model] });
+  }
+  saveDB(db);
+};
+
 // --- Backup/Restore ---
 const downloadJSON = (data: any, filename: string) => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
