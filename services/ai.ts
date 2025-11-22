@@ -37,8 +37,13 @@ export async function identifyDeviceFromImage(base64Image: string): Promise<AIAn
 
       const text = response.text || "{}";
       const jsonStr = text.replace(/```json|```/g, '').trim();
-      return JSON.parse(jsonStr);
-
+      const result = JSON.parse(jsonStr);
+      
+      // If we got a valid result, return it immediately
+      if (result && (result.brand || result.model)) {
+          return result;
+      }
+      
     } catch (error) {
       console.warn(`AI Key ending in ...${apiKey.slice(-4)} failed. Trying next key.`);
       lastError = error;
@@ -48,5 +53,5 @@ export async function identifyDeviceFromImage(base64Image: string): Promise<AIAn
 
   // If we reach here, all keys failed
   console.error("All AI keys failed:", lastError);
-  throw new Error("فشل التعرف على الجهاز بعد عدة محاولات. يرجى التحقق من الإنترنت.");
+  throw new Error("فشل التعرف على الجهاز. (تأكد من الاتصال بالإنترنت)");
 }

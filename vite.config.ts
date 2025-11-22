@@ -6,7 +6,9 @@ export default defineConfig({
   plugins: [react()],
   define: {
     // Injecting multiple keys for rotation strategy to ensure 100% uptime
+    // The new key provided by the user is placed first.
     'process.env.AI_KEYS': JSON.stringify([
+      "AIzaSyD-JqnQKSX4dX-QKSul2bMoSjylnlmmiR0",
       "AIzaSyAK3LA-F1e7u0dxCZkVKTzfSR0AdO2ZHCU",
       "AIzaSyB6jnqtwtZ-p2G_8D9KMhvhlNywwLhw3HQ",
       "AIzaSyAXccWf2TjqeOtynlrb0-2wTtl8GI76Br8",

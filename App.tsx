@@ -42,8 +42,12 @@ const EXPENSE_CATEGORIES = [
 
 // --- Components ---
 
-const Button = ({ children, onClick, variant = 'primary', className = '', type = "button", disabled = false, title = "" }: any) => {
-  const baseClass = "px-4 py-2 rounded-lg transition-all shadow-sm flex items-center justify-center gap-2 text-sm font-bold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed";
+const Button = ({ children, onClick, variant = 'primary', className = '', type = "button", disabled = false, title = "", size = 'md' }: any) => {
+  const baseClass = "rounded-lg transition-all shadow-sm flex items-center justify-center gap-2 font-bold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed";
+  const sizes: any = {
+      sm: "px-2 py-1 text-xs",
+      md: "px-4 py-2 text-sm"
+  };
   const variants: any = {
     primary: "bg-blue-700 text-white hover:bg-blue-800 hover:shadow-md",
     danger: "bg-red-600 text-white hover:bg-red-700",
@@ -54,7 +58,7 @@ const Button = ({ children, onClick, variant = 'primary', className = '', type =
     whatsapp: "bg-[#25D366] text-white hover:bg-[#128C7E] shadow-sm"
   };
   return (
-    <button type={type} onClick={onClick} disabled={disabled} className={`${baseClass} ${variants[variant]} ${className}`} title={title}>
+    <button type={type} onClick={onClick} disabled={disabled} className={`${baseClass} ${sizes[size]} ${variants[variant]} ${className}`} title={title}>
       {children}
     </button>
   );
@@ -693,9 +697,6 @@ const DeviceForm = ({ initialData, onSubmit, onCancel, clients, catalog, onAddCa
     useEffect(() => {
         const selectedBrand = catalog.find((b: PhoneModel) => b.brand === formData.brand);
         setAvailableModels(selectedBrand ? selectedBrand.models : []);
-        if (formData.model && selectedBrand && !selectedBrand.models.includes(formData.model)) {
-            // Manual model logic handling if needed
-        }
     }, [formData.brand, catalog]);
 
     const handleBrandChange = (brand: string) => {
@@ -716,8 +717,8 @@ const DeviceForm = ({ initialData, onSubmit, onCancel, clients, catalog, onAddCa
     const confirmAddCatalog = () => {
         if (detectedNewModel && onAddCatalogModel) {
             onAddCatalogModel(detectedNewModel.brand, detectedNewModel.model);
-            // After adding, select it
-            setFormData({ ...formData, brand: detectedNewModel.brand, model: detectedNewModel.model });
+            // After adding, update form data
+            setFormData(prev => ({ ...prev, brand: detectedNewModel.brand, model: detectedNewModel.model }));
             setDetectedNewModel(null);
             setIsManualModel(false);
         }
@@ -741,12 +742,13 @@ const DeviceForm = ({ initialData, onSubmit, onCancel, clients, catalog, onAddCa
             if (result.brand && result.model && (!brandExists || !modelExists)) {
                 setDetectedNewModel({ brand: result.brand, model: result.model || '' });
             } else if (brandExists) {
-                updates.brand = brandExists.brand; // Normalize brand name
+                 // Normalize brand name if exists
+                 updates.brand = brandExists.brand;
             }
 
             setFormData((prev: any) => ({ ...prev, ...updates }));
-        } catch (error) {
-            alert("فشل التعرف على الجهاز. يرجى المحاولة مرة أخرى. (تأكد من الاتصال بالإنترنت)");
+        } catch (error: any) {
+            alert(error.message || "فشل التعرف على الجهاز.");
         } finally {
             setIsAnalyzing(false);
         }
@@ -763,11 +765,14 @@ const DeviceForm = ({ initialData, onSubmit, onCancel, clients, catalog, onAddCa
             </div>
 
             {detectedNewModel && (
-               <div className="bg-blue-50 p-3 rounded border border-blue-200 mb-4 flex justify-between items-center animate-in fade-in">
-                  <span className="text-sm text-slate-700">
-                      تم اكتشاف موديل جديد: <b>{detectedNewModel.brand} {detectedNewModel.model}</b>. هل تريد إضافته للقائمة؟
-                  </span>
-                  <Button size="sm" onClick={confirmAddCatalog} className="text-xs h-8">إضافة للقائمة</Button>
+               <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-200 mb-4 flex flex-col sm:flex-row gap-3 justify-between items-center animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                      <Sparkles size={16} className="text-indigo-600"/>
+                      <span className="text-sm text-indigo-900">
+                          اكتشف الذكاء الاصطناعي موديلاً جديداً: <b>{detectedNewModel.brand} {detectedNewModel.model}</b>
+                      </span>
+                  </div>
+                  <Button size="sm" onClick={confirmAddCatalog} className="text-xs h-8 whitespace-nowrap bg-indigo-600 hover:bg-indigo-700 text-white">إضافة للقائمة</Button>
                </div>
             )}
 
