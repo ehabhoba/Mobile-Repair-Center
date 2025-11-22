@@ -4,7 +4,7 @@ import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-ro
 import { 
   Users, Smartphone, Wrench, Settings as SettingsIcon, LayoutDashboard, 
   Plus, Search, Trash2, Edit2, Printer, Save, Download, Upload,
-  CheckCircle, Clock, XCircle, PackageCheck, AlertCircle, Phone, MapPin, Receipt, ChevronDown, ChevronLeft, AlertTriangle, Calendar, Camera, Sparkles, Database, FileJson, MessageCircle, TrendingUp, DollarSign, PieChart, Wallet, TrendingDown, ArrowUpRight, ArrowDownRight, Menu, Share2
+  CheckCircle, Clock, XCircle, PackageCheck, AlertCircle, Phone, MapPin, Receipt, ChevronDown, ChevronLeft, ChevronRight, AlertTriangle, Calendar, Camera, Sparkles, Database, FileJson, MessageCircle, TrendingUp, DollarSign, PieChart, Wallet, TrendingDown, ArrowUpRight, ArrowDownRight, Menu, Share2, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { 
   loadDB, addClient, updateClient, deleteClient, 
@@ -255,7 +255,8 @@ const CameraModal = ({ onCapture, onClose }: { onCapture: (img: string) => void,
 
 const Layout = ({ children }: any) => {
   const location = useLocation();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const navItems = [
     { icon: LayoutDashboard, label: 'الرئيسية', path: '/' },
@@ -269,47 +270,70 @@ const Layout = ({ children }: any) => {
   return (
     <div className="flex h-screen bg-slate-100 text-slate-800 overflow-hidden print:block print:h-auto print:bg-white font-sans">
       {/* Mobile Overlay */}
-      {isSidebarOpen && (
+      {isMobileOpen && (
         <div 
             className="fixed inset-0 bg-slate-900/50 z-30 md:hidden backdrop-blur-sm"
-            onClick={() => setIsSidebarOpen(false)}
+            onClick={() => setIsMobileOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 right-0 z-40 w-64 bg-slate-900 text-slate-300 flex flex-col shadow-2xl no-print transition-transform duration-300 ease-in-out
+        fixed inset-y-0 right-0 z-40 bg-slate-900 text-slate-300 flex flex-col shadow-2xl no-print transition-all duration-300 ease-in-out
         md:static md:translate-x-0
-        ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}
+        ${isMobileOpen ? 'translate-x-0' : 'translate-x-full'}
+        ${isCollapsed ? 'md:w-20' : 'md:w-64'}
+        w-64
       `}>
-        <div className="p-6 flex items-center gap-3 border-b border-slate-800 bg-slate-950">
+        <div className={`p-4 flex items-center gap-3 border-b border-slate-800 bg-slate-950 h-16 ${isCollapsed ? 'justify-center px-2' : ''}`}>
           <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/50 shrink-0">
             <Wrench className="text-white" size={22} />
           </div>
-          <div>
+          <div className={`overflow-hidden whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
             <h1 className="font-black text-white text-lg leading-tight tracking-wide">مركز ميدو</h1>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Mobile Repair Center</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Repair Center</p>
           </div>
         </div>
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+
+        <nav className="flex-1 p-3 space-y-2 overflow-y-auto overflow-x-hidden">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <Link 
                 key={item.path} 
                 to={item.path}
-                onClick={() => setIsSidebarOpen(false)}
-                className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 font-bold text-sm ${isActive ? 'bg-blue-700 text-white shadow-lg shadow-blue-900/50 translate-x-1' : 'hover:bg-slate-800 hover:text-white'}`}
+                onClick={() => setIsMobileOpen(false)}
+                className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 font-bold text-sm 
+                    ${isActive ? 'bg-blue-700 text-white shadow-lg shadow-blue-900/50 translate-x-1' : 'hover:bg-slate-800 hover:text-white'}
+                    ${isCollapsed ? 'justify-center px-2' : ''}
+                `}
+                title={isCollapsed ? item.label : ''}
               >
-                <item.icon size={18} className={isActive ? 'text-blue-200' : 'text-slate-500'} />
-                {item.label}
+                <item.icon size={20} className={`shrink-0 ${isActive ? 'text-blue-200' : 'text-slate-500'}`} />
+                <span className={`whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'hidden opacity-0' : 'block opacity-100'}`}>
+                    {item.label}
+                </span>
               </Link>
             );
           })}
         </nav>
-        <div className="p-4 border-t border-slate-800 text-[10px] text-slate-600 text-center font-mono">
-            v3.2.0 Build 2025
+        
+        {/* Collapse Toggle for Desktop */}
+        <div className="hidden md:flex p-4 border-t border-slate-800 justify-center">
+            <button 
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="p-2 text-slate-500 hover:bg-slate-800 hover:text-white rounded-lg transition-colors"
+                title={isCollapsed ? "توسيع القائمة" : "تصغير القائمة"}
+            >
+                {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+            </button>
         </div>
+
+        {!isCollapsed && (
+            <div className="p-4 border-t border-slate-800 text-[10px] text-slate-600 text-center font-mono md:block hidden">
+                v3.2.0 Build 2025
+            </div>
+        )}
       </aside>
 
       {/* Main Content */}
@@ -317,7 +341,7 @@ const Layout = ({ children }: any) => {
         <header className="h-16 bg-white border-b flex items-center justify-between px-4 md:px-8 shadow-sm z-10 no-print shrink-0">
             <div className="flex items-center gap-3">
                 <button 
-                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    onClick={() => setIsMobileOpen(!isMobileOpen)}
                     className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
                 >
                     <Menu size={24} />
