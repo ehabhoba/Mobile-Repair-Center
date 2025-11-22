@@ -1,0 +1,7 @@
+{
+  "name": "Mobile Repair Manager",
+  "description": "A serverless React application for managing mobile repair shop operations including clients, devices, repairs, and invoicing.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
