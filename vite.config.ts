@@ -1,13 +1,11 @@
-
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Injecting multiple keys for rotation strategy to ensure 100% uptime
-    // The new key provided by the user is placed first.
-    'process.env.AI_KEYS': JSON.stringify([
+    // Using a global constant instead of process.env to avoid browser reference errors
+    '__AI_KEYS__': JSON.stringify([
       "AIzaSyD-JqnQKSX4dX-QKSul2bMoSjylnlmmiR0",
       "AIzaSyAK3LA-F1e7u0dxCZkVKTzfSR0AdO2ZHCU",
       "AIzaSyB6jnqtwtZ-p2G_8D9KMhvhlNywwLhw3HQ",
