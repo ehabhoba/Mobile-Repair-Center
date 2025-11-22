@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useContext, createContext } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { 
   Users, Smartphone, Wrench, Settings as SettingsIcon, LayoutDashboard, 
   Plus, Search, Trash2, Edit2, Printer, Save, Download, Upload,
-  CheckCircle, Clock, XCircle, PackageCheck, AlertCircle, Phone, MapPin, Receipt, ChevronDown, ChevronLeft, ChevronRight, AlertTriangle, Calendar, Camera, Sparkles, Database, FileJson, MessageCircle, TrendingUp, DollarSign, PieChart, Wallet, TrendingDown, ArrowUpRight, ArrowDownRight, Menu, Share2, PanelLeftClose, PanelLeftOpen
+  CheckCircle, Clock, XCircle, PackageCheck, AlertCircle, Phone, MapPin, Receipt, ChevronDown, ChevronLeft, ChevronRight, AlertTriangle, Calendar, Camera, Sparkles, Database, FileJson, MessageCircle, TrendingUp, DollarSign, PieChart, Wallet, TrendingDown, ArrowUpRight, ArrowDownRight, Menu, Share2, PanelLeftClose, PanelLeftOpen, X
 } from 'lucide-react';
 import { 
   loadDB, addClient, updateClient, deleteClient, 
@@ -39,6 +39,61 @@ const EXPENSE_CATEGORIES = [
     { id: 'PARTS', label: 'شراء قطع غيار' },
     { id: 'OTHER', label: 'مصروفات أخرى (بوفيه..)' },
 ];
+
+// --- Toast Notification System ---
+
+interface ToastMessage {
+  id: string;
+  message: string;
+  type: 'success' | 'info' | 'error';
+}
+
+const ToastContext = createContext<{ addToast: (msg: string, type?: 'success' | 'info' | 'error') => void } | null>(null);
+
+const useToast = () => {
+  const context = useContext(ToastContext);
+  if (!context) throw new Error("useToast must be used within a ToastProvider");
+  return context;
+};
+
+const ToastProvider = ({ children }: { children: React.ReactNode }) => {
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => removeToast(id), 4000); // Auto dismiss after 4s
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  return (
+    <ToastContext.Provider value={{ addToast }}>
+      {children}
+      <div className="fixed bottom-6 left-6 z-[100] flex flex-col gap-2 w-auto max-w-sm no-print">
+        {toasts.map(t => (
+          <div 
+            key={t.id} 
+            className={`
+              flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border text-sm font-bold animate-in slide-in-from-bottom-5 fade-in duration-300
+              ${t.type === 'success' ? 'bg-emerald-600 text-white border-emerald-700' : 
+                t.type === 'error' ? 'bg-red-600 text-white border-red-700' : 
+                'bg-slate-800 text-white border-slate-900'}
+            `}
+          >
+            <div className="shrink-0">
+              {t.type === 'success' ? <CheckCircle size={20} /> : t.type === 'error' ? <AlertCircle size={20} /> : <Clock size={20} />}
+            </div>
+            <span className="flex-1 leading-tight">{t.message}</span>
+            <button onClick={() => removeToast(t.id)} className="opacity-70 hover:opacity-100"><X size={16} /></button>
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+};
 
 // --- Components ---
 
@@ -994,6 +1049,7 @@ const Devices = () => {
 };
 
 const Repairs = () => {
+  const { addToast } = useToast();
   const [data, setData] = useState<DBData>(loadDB());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filter, setFilter] = useState('ALL');
@@ -1023,9 +1079,23 @@ const Repairs = () => {
     };
     
     if (editingId) {
+        const oldRepair = data.repairs.find(r => r.id === editingId);
+        // Check for status change
+        if (oldRepair && oldRepair.status !== payload.status) {
+             if (payload.status === RepairStatus.DONE) {
+                 addToast("🎉 تم الانتهاء من الإصلاح بنجاح!", 'success');
+             } else if (payload.status === RepairStatus.DELIVERED) {
+                 addToast("✅ تم تسليم الجهاز للعميل", 'success');
+             } else {
+                 addToast("تم تحديث حالة الصيانة", 'info');
+             }
+        } else {
+            addToast("تم حفظ التعديلات بنجاح", 'success');
+        }
         updateRepair(editingId, payload);
     } else {
         addRepair(payload);
+        addToast("تم إضافة أمر الصيانة بنجاح", 'success');
     }
     setIsModalOpen(false);
     setEditingId(null);
@@ -1052,6 +1122,7 @@ const Repairs = () => {
       if(window.confirm("حذف أمر الصيانة؟")) {
           deleteRepair(id);
           loadData();
+          addToast("تم حذف الأمر", 'info');
       }
   }
 
@@ -1512,19 +1583,21 @@ const Settings = () => {
 
 const App = () => {
   return (
-    <HashRouter>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/clients" element={<Clients />} />
-          <Route path="/devices" element={<Devices />} />
-          <Route path="/repairs" element={<Repairs />} />
-          <Route path="/expenses" element={<Expenses />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Layout>
-    </HashRouter>
+    <ToastProvider>
+        <HashRouter>
+        <Layout>
+            <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/clients" element={<Clients />} />
+            <Route path="/devices" element={<Devices />} />
+            <Route path="/repairs" element={<Repairs />} />
+            <Route path="/expenses" element={<Expenses />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+        </Layout>
+        </HashRouter>
+    </ToastProvider>
   );
 };
 
