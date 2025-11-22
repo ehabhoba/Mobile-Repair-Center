@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 
 export interface AIAnalysisResult {
@@ -13,6 +14,13 @@ export async function identifyDeviceFromImage(base64Image: string): Promise<AIAn
   // Strip header if exists (data:image/jpeg;base64,...)
   const cleanData = base64Image.split(',')[1] || base64Image;
 
+  // List of models to try in order of preference (Fastest/Free -> Strongest -> Experimental)
+  const MODELS_TO_TRY = [
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-2.0-flash-exp'
+  ];
+
   let lastError = null;
   
   // Ensure keys exist
@@ -23,42 +31,52 @@ export async function identifyDeviceFromImage(base64Image: string): Promise<AIAn
       throw new Error("خطأ في إعدادات النظام (API Keys missing).");
   }
 
-  // KEY ROTATION STRATEGY
-  // Loop through available keys. If one fails, try the next.
+  // STRATEGY: Iterate through Keys -> Then iterate through Models
+  // This maximizes the chance of success if a specific key or model is rate-limited.
   for (const apiKey of keys) {
     try {
-      const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({ apiKey });
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash', // Using 1.5-flash as it's often more stable/available for free tier rotation
-        contents: {
-            parts: [
-                { inlineData: { mimeType: 'image/jpeg', data: cleanData } },
-                { text: "Analyze this image of a mobile phone. Identify the Brand (e.g. Samsung, Apple), the specific Model (e.g. iPhone 13, Galaxy S22), and the Color. Return a strictly valid JSON object with keys: 'brand', 'model', 'color'. Do not include markdown code blocks." }
-            ]
-        },
-        config: {
-            responseMimeType: "application/json"
+        for (const modelName of MODELS_TO_TRY) {
+            try {
+                // console.log(`Trying Key ending ...${apiKey.slice(-4)} with Model: ${modelName}`);
+                
+                const response = await ai.models.generateContent({
+                    model: modelName,
+                    contents: {
+                        parts: [
+                            { inlineData: { mimeType: 'image/jpeg', data: cleanData } },
+                            { text: "Identify the mobile phone in this image. Return a JSON object with keys: 'brand' (e.g. Samsung, Apple), 'model' (e.g. iPhone 13, S24 Ultra), and 'color'. If unsure, make a best guess. Do NOT use Markdown. JSON only." }
+                        ]
+                    },
+                    config: {
+                        responseMimeType: "application/json"
+                    }
+                });
+
+                const text = response.text;
+                if (!text) throw new Error("Empty response");
+
+                // Aggressive JSON cleaning
+                const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                const result = JSON.parse(jsonStr);
+                
+                // Validation: Must have at least brand or model
+                if (result && (result.brand || result.model)) {
+                    return result; // SUCCESS!
+                }
+            } catch (innerError) {
+                // Continue to next model
+                // console.warn(`Model ${modelName} failed for this key.`);
+            }
         }
-      });
-
-      const text = response.text || "{}";
-      const jsonStr = text.replace(/```json|```/g, '').trim();
-      const result = JSON.parse(jsonStr);
-      
-      // If we got a valid result, return it immediately
-      if (result && (result.brand || result.model)) {
-          return result;
-      }
-      
     } catch (error) {
-      console.warn(`AI Key ending in ...${apiKey.slice(-4)} failed. Trying next key.`);
+      // Key failed entirely
       lastError = error;
-      // Continue to next iteration (next key)
     }
   }
 
-  // If we reach here, all keys failed
-  console.error("All AI keys failed:", lastError);
-  throw new Error("فشل التعرف على الجهاز. يرجى المحاولة مرة أخرى (تأكد من الاتصال بالإنترنت).");
+  // If we reach here, everything failed
+  console.error("All AI keys and models failed:", lastError);
+  throw new Error("فشل التعرف على الجهاز. يرجى التأكد من جودة الصورة والاتصال بالإنترنت.");
 }
